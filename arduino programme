@@ -1,0 +1,100 @@
+#include <PWM.h>
+
+#include <avdweb_AnalogReadFast.h>
+
+#include <PID_v1.h>
+
+#define PIN_INPUT 0  //This is the voltage feedback pin
+#define PIN_INPUT2 1    //This is the current feedback pin
+#define PIN_OUTPUT 3    //This is the duty cycle output
+
+volatile double i = 0;
+
+//Define Variables we'll be connecting to
+double Setpoint, Input, Output;
+double Setpoint2, Input2;
+
+//Exponential Filter
+double alpha = 0.3;
+double average = 0;
+
+//Specify the links and initial tuning parameters
+double Kp=0.2422, Ki=24.1417, Kd=0.0000079668;
+double Kp2=0.0032,Ki2=321.255,Kd2=0;
+PID myPID(&Input, &Setpoint2, &Setpoint, Kp, Ki, Kd, DIRECT);//for outer loop 
+PID myPID2(&Input2, &Output, &Setpoint2, Kp2, Ki2, Kd2, DIRECT);//for inner loop
+
+volatile double feedback = 0,feedback2 = 0;          //Store the feedback value
+
+//For PWM library
+int32_t frequency=100000;//PWM frequency
+
+void setup(void)
+{
+  pinMode(PIN_INPUT, INPUT);
+  pinMode(PIN_INPUT2, INPUT);
+  pinMode(PIN_OUTPUT, OUTPUT);
+  Serial.begin(9600);
+
+  //PID part: initialize the variables we're linked to
+  Input = analogRead(PIN_INPUT);
+  Setpoint = 300;
+
+  //turn the PID on
+  myPID.SetMode(AUTOMATIC);
+  myPID2.SetMode(AUTOMATIC);
+
+  //minimize the Sampling time (1 micro second) 
+  myPID.SetSampleTime(300);
+  myPID2.SetSampleTime(300);
+
+  //Set output limits
+  myPID.SetOutputLimits(40, 200);
+  myPID2.SetOutputLimits(40, 200);
+
+  
+  //initialize the PWM pin and set the frequency.
+  InitTimersSafe();
+  bool success = SetPinFrequencySafe(PIN_OUTPUT,frequency); // set frequency
+
+  cli();//stop interrupts
+
+  //set timer1 interrupt at 8kHz
+  TCCR1A = 0;// set entire TCCR1A register to 0
+  TCCR1B = 0;// same for TCCR1B
+  TCNT1  = 0;//initialize counter value to 0
+  // set compare match register for 1hz increments
+  OCR1A = 90;// = (16*10^6) / (3300*64) - 1 (must be <256)
+  // turn on CTC mode
+  TCCR1B |= (1 << WGM12);
+  // Set CS11 and CS12 bits for 64 prescaler
+  TCCR1B |= (1 << CS11) | (1 << CS10);  
+  // enable timer compare interrupt
+  TIMSK1 |= (1 << OCIE1A);
+  sei();//allow interrupts
+}
+
+
+ISR(TIMER1_COMPA_vect){  //change the 0 to 1 for timer1 and 2 for timer2
+   //  PID part: 
+  Input = analogReadFast(PIN_INPUT);
+  //average = average*alpha+Input*(1-alpha);
+  myPID.Compute();
+  Input2 = analogReadFast(PIN_INPUT2)/4.7;       //use 4.7 ohm shunt resistor to get current
+  //average = average*alpha+Input*(1-alpha);
+  myPID2.Compute();
+  pwmWrite(PIN_OUTPUT, Output);
+  i++;
+}
+
+void loop(void)//to make sure PID actually run 5k times per second.
+{
+  int32_t icopy = 0;
+  noInterrupts();
+  Serial.print(Output);//For debug purpose
+  Serial.print(" ");
+  icopy = i;
+  Serial.println(icopy);
+  interrupts();
+  delay(1000);
+}
