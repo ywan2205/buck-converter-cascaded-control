@@ -1,0 +1,54 @@
+%design a cascaded controller for buck converter using IMC control
+L=100e-6;
+C=680e-6;
+R=6;
+Vin=24;
+Vo=12;
+D=Vo/Vin;
+Ttotal = 0.1;
+Fsw=10e3;
+Tsample = Ttotal/Fsw/1000;
+
+%transfer function for Buck converter inductor current 
+omega_n = sqrt(1/(L*C));
+xi = 1/(R*C)/(2*omega_n);
+K = Vin/(R*L*C);
+beta = R*C;
+Gi = tf([K*beta K],[1 2*xi*omega_n omega_n^2]);
+
+%IMC controller design:
+timeConst1 = 0.01;
+F = tf(1,[timeConst1 1]);
+Q = F*Gi^-1;
+
+Kp = 1/timeConst1/K*2*xi*omega_n;
+Ki = 1/timeConst1/K*omega_n^2;
+Kd = 1/timeConst1/K;
+Controller = pid(Kp,Ki,Kd);
+Controller_lag = tf(1,[beta 1]);
+IMC = feedback(Controller*Controller_lag*Gi,1);
+
+% step(IMC);
+% hold on
+% step(F);
+% hold off
+
+%IMC outer loop design
+timeConst2 = 6.436*timeConst1;
+Giv = tf(R,[R*C 1]);
+Gouter = Giv*F;
+Fouter = tf([1],[timeConst2^2 2*timeConst2 1]);
+Kp_outer = (timeConst1+R*C)/timeConst2^2/R;
+Ki_outer = 1/timeConst2^2/R;
+Kd_outer = timeConst1*R*C/timeConst2^2/R;
+
+Controller2 = pid(Kp_outer,Ki_outer,Kd_outer);
+Controller2_lag = tf(1,[1 2/timeConst2]);
+Plant_outer = feedback(Gouter*Controller2*Controller2_lag,1);
+
+% step(Plant_outer);
+% hold on
+% step(Fouter);
+% hold off
+
+
