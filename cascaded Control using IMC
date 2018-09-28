@@ -1,12 +1,12 @@
 %design a cascaded controller for buck converter using IMC control
 L=100e-6;
-C=680e-6;
-R=6;
-Vin=24;
-Vo=12;
+C=3.3e-6;
+R=10;
+Vin=12.5;
+Vo=5;
 D=Vo/Vin;
 Ttotal = 0.1;
-Fsw=10e3;
+Fsw=100e3;
 Tsample = Ttotal/Fsw/1000;
 
 %transfer function for Buck converter inductor current 
@@ -28,10 +28,11 @@ Controller = pid(Kp,Ki,Kd);
 Controller_lag = tf(1,[beta 1]);
 IMC = feedback(Controller*Controller_lag*Gi,1);
 
-% step(IMC);
-% hold on
-% step(F);
-% hold off
+figure(1)
+step(IMC);
+hold on
+step(F);
+hold off
 
 %IMC outer loop design
 timeConst2 = 6.436*timeConst1;
@@ -46,9 +47,13 @@ Controller2 = pid(Kp_outer,Ki_outer,Kd_outer);
 Controller2_lag = tf(1,[1 2/timeConst2]);
 Plant_outer = feedback(Gouter*Controller2*Controller2_lag,1);
 
-% step(Plant_outer);
-% hold on
-% step(Fouter);
-% hold off
+figure(2)
+step(Plant_outer);
+hold on
+step(Fouter);
+hold off
 
-
+Cid = c2d(Controller*Controller_lag,1/5e3,'tustin'); 
+[num,den] = tfdata(Cid,'v');
+Cvd = c2d(Controller2*Controller2_lag,1/5e3,'tustin'); 
+[num2,den2] = tfdata(Cvd,'v');
