@@ -151,11 +151,11 @@ void PIDparameterUpdate(double resistor){
 //  sei();//allow interrupts
 
   Serial.print("parameters updated. The detected load is ");Serial.println(resistor);
-  Serial.println("For outer loop");
+  Serial.println("For inner loop");
   Serial.print(" Kp:");Serial.println(Kp,6);//This "6" indicates the precision of the float display
   Serial.print(" Ki:");Serial.println(Ki,6);
   Serial.print(" Kd:");Serial.println(Kd,6);
-  Serial.println("For inner loop");
+  Serial.println("For outer loop");
   Serial.print(" Kp:");Serial.println(Kp2,6);
   Serial.print(" Ki:");Serial.println(Ki2,6);
   Serial.print(" Kd:");Serial.println(Kd2,6);
